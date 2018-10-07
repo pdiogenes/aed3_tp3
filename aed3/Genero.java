@@ -1,11 +1,12 @@
-
+package aed3;
 import java.io.*;
 
 public class Genero implements Entidade {
     protected int    id;
     protected String nome;
 
-    public Genero(String t) {
+    public Genero(int c, String t) {
+        this.id = c;
         this.nome = t;
     }
     public Genero() {
@@ -21,13 +22,13 @@ public class Genero implements Entidade {
         return this.id;
     }
 
-    public String getNome() {
+    public String getString() {
         return this.nome;
     }
 
     public String toString() {
         return "\nCódigo: " + this.id +
-               "\t\tNome: " + this.nome;
+               "\nNome: " + this.nome;
     }
 
     public byte[] getByteArray() throws IOException {

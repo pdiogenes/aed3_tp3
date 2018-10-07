@@ -1,3 +1,4 @@
+package aed3;
 import java.io.*;
 import java.util.*;
 import java.lang.reflect.Constructor;
@@ -7,17 +8,19 @@ public class ArquivoIndexado<T extends Entidade> {
     RandomAccessFile arquivo;
     String nomeArquivo;
     Constructor<T> construtor;
-    ArvoreBMais_Int_Long indice;
-
-    public ArquivoIndexado(Constructor<T> c, String n, String in) throws Exception {
+    ArvoreBMais_Int_Long indice1;
+    ArvoreBMais_String_Int indice2;
+    
+    public ArquivoIndexado(Constructor<T> c, String n, String in1, String in2) throws Exception {
         nomeArquivo = n;
         construtor = c;
         arquivo = new RandomAccessFile(nomeArquivo, "rw");
         if(arquivo.length()<4)
             arquivo.writeInt(0);
-        indice = new ArvoreBMais_Int_Long(10, in);
+        indice1 = new ArvoreBMais_Int_Long(10, in1);
+        indice2 = new ArvoreBMais_String_Int(10, in2);
     }
-
+    
     public int incluir(T obj) throws Exception {
         arquivo.seek(0);
         int id = arquivo.readInt();
@@ -32,13 +35,14 @@ public class ArquivoIndexado<T extends Entidade> {
         byte[] b = obj.getByteArray();
         arquivo.writeInt(b.length);
         arquivo.write(b);
-        indice.inserir(id, endereco);
-
+        indice1.inserir(id, endereco);
+        indice2.inserir(obj.getString(), obj.getId()); // o índice é indireto
+        
         return id;
     }
-
+    
     public Object[] listar() throws Exception {
-
+        
         // Em um sistema real, o número de registros será muito superior ao que
         // um ArrayList poderia comportar em memória. Esta operação está aqui
         // apenas para facilitar a depuração do código
@@ -58,20 +62,20 @@ public class ArquivoIndexado<T extends Entidade> {
             if(lapide==' ')
                 lista.add(l);
         }
-
+        
         Object[] ls = lista.toArray();
         return ls;
     }
-
+    
     public Entidade buscar(int id) throws Exception {
-
+        
         T obj = construtor.newInstance();
         byte lapide;
         byte[] b;
         int s;
         long endereco;
-
-        if( (endereco = indice.buscar(id))>=0 ) {
+        
+        if( (endereco = indice1.buscar(id))>=0 ) {
             arquivo.seek(endereco);
             lapide = arquivo.readByte();
             s = arquivo.readInt();
@@ -81,33 +85,57 @@ public class ArquivoIndexado<T extends Entidade> {
             arquivo.seek(endereco);
             return obj;
         }
-        else
+        else 
             return null;
     }
 
-
+    public Entidade buscarString(String t) throws Exception {
+        
+        T obj = construtor.newInstance();
+        byte lapide;
+        byte[] b;
+        int s;
+        long endereco;
+        int id;
+        
+        if( (id = indice2.buscar(t))>=0 ) {
+            endereco = indice1.buscar(id);
+            arquivo.seek(endereco);
+            lapide = arquivo.readByte();
+            s = arquivo.readInt();
+            b = new byte[s];
+            arquivo.read(b);
+            obj.setByteArray(b);
+            return obj;
+        }
+        else 
+            return null;
+    }
+    
+    
     public boolean excluir(int id) throws Exception {
-
+        
         byte[] b;
         int s;
         T obj = construtor.newInstance();
-        long endereco = indice.buscar(id);
+        long endereco = indice1.buscar(id);
         arquivo.seek(endereco);
         arquivo.write('*');
         s = arquivo.readInt();
         b = new byte[s];
         arquivo.read(b);
         obj.setByteArray(b);
-        indice.excluir(id);
-
+        indice1.excluir(id);
+        indice2.excluir(obj.getString());
+        
         return true;
     }
-
+    
     public boolean alterar(T novoObj) throws Exception {
         byte[] b;
         int s;
         T obj = construtor.newInstance();
-        long endereco = indice.buscar(novoObj.getId());
+        long endereco = indice1.buscar(novoObj.getId());
         arquivo.seek(endereco);
         arquivo.write('*');
         s = arquivo.readInt();
@@ -121,8 +149,12 @@ public class ArquivoIndexado<T extends Entidade> {
         b = novoObj.getByteArray();
         arquivo.writeInt(b.length);
         arquivo.write(b);
-        indice.atualizar(novoObj.getId(), endereco);
+        indice1.atualizar(novoObj.getId(), endereco);
+        if(novoObj.getString().compareTo(obj.getString()) != 0) {
+            indice2.excluir(obj.getString());
+            indice2.inserir(novoObj.getString(), novoObj.getId());
+        }
         return true;
-    }
+    }    
 
 }
